@@ -1,13 +1,190 @@
 ---
-title: "Morning After QC Drift Evaluation"
+title: "Processing data to evaluate Morning After QC Drift"
 format: html
 ---
 
-Specify a desired location
+Specify desired storage location and instrument
 
 ```{r}
 StorageLocation <- file.path("Figures", "Figure_MorningAfterQC")
 
-#Instrument <- "4L"
+Instrument <- "5L"
 ```
+
+Load required packages via the Library call 
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(stringr)
+```
+
+Import the processed data from the UMGCC FCSS InstrumentQC dashboard
+
+```{r}
+# Cytek Aurora 3L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "3L", "Archive", "BeadData3L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("3L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data3L <- Data |> mutate(Instrument = "3L")
+```
+
+```{r}
+# Cytek Aurora 4L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "4L", "Archive", "BeadData4L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("4L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data4L <- Data |> mutate(Instrument = "4L")
+```
+
+```{r}
+# Cytek Aurora 5L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "5L", "Archive", "BeadData5L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("5L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data5L <- Data |> mutate(Instrument = "5L")
+```
+
+```{r}
+if (Instrument %in% "3L"){TheTimes <- Data3L
+} else if (Instrument %in% "4L"){TheTimes <- Data4L
+} else if (Instrument %in% "5L") {TheTimes <- Data5L
+} else {stop("Instrument not found")}
+
+#TheTimes <- bind_rows(Data3L, Data4L, Data5L)
+
+TheTimes$DateTime <- lubridate::ymd_hms(TheTimes$DateTime)
+
+#TheTimes$hour_of_day <- hour(TheTimes$DateTime) + minute(TheTimes$DateTime) / 60
+```
+
+For the poster, we will be filtering for data acquired after we figured out the bleach issue in January
+
+```{r}
+Dataset <- TheTimes |> filter(year(DateTime) >= 2025)
+```
+
+Some cleaning for the various timepoints
+
+```{r}
+Data <- Dataset |> mutate(Status=case_when(
+    str_detect(SAMPLE, "efore") ~ "Before",
+    str_detect(SAMPLE, "fter") ~ "After",
+    FALSE ~ SAMPLE
+))
+
+Data <- Data |> mutate(Shift=case_when(
+    str_detect(SAMPLE, "vening") ~ "Evening",
+    str_detect(SAMPLE, "fternoon") ~ "Evening",
+    str_detect(SAMPLE, "hutdown") ~ "Evening",
+    FALSE ~ SAMPLE
+))
+
+Data <- Data |>
+  mutate(Status = tidyr::replace_na(Status, "Before"))
+
+Data <- Data |> mutate(Timepoint = paste(Status, Shift, sep = "_"))
+
+Variables <- Data$Timepoint |> unique() |> length()
+
+if (Variables == 4){
+CleanData <- Data |> group_by(Instrument, DATE) |> filter(Timepoint %in% c("After_NA", "Before_NA"))
+
+CleanData <- CleanData |> group_by(Instrument, DATE) |> mutate(Count=n()) |> filter(Count == 2) |> ungroup()
+} else {stop("Something in processing is off")}
+```
+
+
+```{r}
+TheInstuments <- CleanData |> pull(Instrument) |> unique()
+
+CleanData$DATE <- as.Date(CleanData$DATE)
+```
+
+```{r}
+DayAfterQC <- function(x, data){
+    Internal <- data |> filter(Instrument %in% x)
+    Internal |> arrange(desc(DATE))
+
+    Fixed <- Internal |> group_by(DATE) |> mutate(
+        Tracker = case_when(
+            Timepoint == "Before_NA" ~ cur_group_id(),
+            Timepoint == "After_NA" ~ cur_group_id(),
+            TRUE ~ NA_integer_)) |> relocate(Tracker, .after=SAMPLE) |>
+        mutate(Tracker = case_when(
+            Timepoint == "Before_NA" ~ Tracker - 1,
+            Timepoint == "After_NA" ~ Tracker,
+            TRUE ~ NA_integer_))
+
+    return(Fixed)
+}
+```
+
+And since I am interested in evaluating change in QC from one morning to the next (not Friday afternoon to Monday morning) some extra cleanup is required. 
+
+```{r}
+Dataset <- DayAfterQC(x=TheInstuments[1], data=CleanData)
+
+Dataset <- Dataset |> group_by(Tracker) |> mutate(Count = n()) |> filter(Count == 2)
+
+DayAfter <- Dataset |> group_by(Tracker) |> mutate(
+    Difference = as.numeric(difftime(max(ymd(DATE)), min(ymd(DATE)), units = "days"))) |>
+    relocate(Difference, .after=Tracker) |> filter(Difference == 1)
+
+# For multiple day difference evaluation, we would change the above
+```
+
+```{r}
+EllapsedTime <- DayAfter |> group_by(Tracker) |>
+  summarize(
+    TimeDifference = as.numeric(DateTime[Timepoint == "Before_NA"] - DateTime[Timepoint == "After_NA"],
+    units = "hours")
+  ) |>
+  mutate(TimeDifference = round(TimeDifference / 0.25) * 0.25)
+
+TheData <- left_join(DayAfter, EllapsedTime, by="Tracker")
+colnames(TheData)
+TheData <- TheData |> select(-Shift, -Status, -Count) |> relocate(TimeDifference, Instrument, .after=Timepoint)
+```
+
+```{r}
+CSVName <- paste0("data/MorningAfterQCDrift", Instrument, ".csv")
+write.csv(TheData, CSVName, row.names=FALSE)
+```
+
+```{r}
+print("GoodBye")
+```
+
+
 
