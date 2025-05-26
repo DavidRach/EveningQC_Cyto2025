@@ -1,0 +1,5 @@
+---
+title: "Adjusted Brightness"
+format: html
+---
+
