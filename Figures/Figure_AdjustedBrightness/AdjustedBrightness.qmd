@@ -2,4 +2,127 @@
 title: "Adjusted Brightness"
 format: html
 ---
+Specify desired storage location
+
+```{r}
+StorageLocation <- file.path("Figures", "Figure_AdjustedBrightness")
+```
+
+Load required packages by library call 
+
+```{r}
+library(flowCore)
+library(flowWorkspace)
+library(openCyto)
+library(data.table)
+library(Luciernaga)
+library(stringr)
+```
+
+Specify input path for the raw .fcs files to be adjusted
+```{r}
+path <- file.path("C:", "Users", "12692", "Desktop", "BrightnessTwist")
+pattern=".fcs"
+TheUnstaineds <- list.files(path=path, pattern=pattern, full.names=TRUE)
+
+if (length(TheUnstaineds) == 1){
+  file <- TheUnstaineds
+} else {message("Multiple items are present!!!!")}
+```
+
+Proceed to load the files into a GatingSet
+```{r}
+MyCytoSet <- load_cytoset_from_fcs(TheUnstaineds, truncate_max_range = FALSE, transform = FALSE)
+MyGatingSet <- GatingSet(MyCytoSet)
+```
+
+We will reuse the openCyto gating template from Luciernaga (since matches our instrument settings for this target cell population)
+
+```{r}
+FileLocation <- system.file("extdata", package = "Luciernaga")
+MyGates <- fread(file.path(path = FileLocation, pattern = 'Gates.csv'))
+MyGates <- MyGates
+```
+
+And we apply the gates
+
+```{r}
+MyGatingTemplate <- gatingTemplate(MyGates)
+gt_gating(MyGatingTemplate, MyGatingSet)
+plot(MyGatingSet)
+```
+
+We can then use Luciernaga's plotting functions to make sure the reused template works correctly. 
+
+```{r}
+removestrings <-  c("(Cells)", ".fcs", " ")
+
+IndividualPlot <- Utility_GatingPlots(x=MyGatingSet[[1]], sample.name = "GUID",
+                                      removestrings = removestrings, gtFile = MyGates,
+                                      DesiredGates = NULL, outpath = StorageLocation, returnType="patchwork")
+
+IndividualPlot
+#pData(MyGatingSet)
+```
+
+We then load our custom function
+
+```{r}
+BrightnessAdjust <- function(gs, subset, TheseColumns=NULL, ThisManyTimes=NULL,
+                             residual=NULL, residual.name="DATE",
+                             residual.value=NULL, outpath=NULL, FCSname){
+  
+  Data <- gs_pop_get_data(gs, subset, inverse.transform=FALSE)
+  TheExprs <- data.frame(exprs(Data[[1]]), check.names=FALSE)
+  
+  # Calculating Multipliers
+  if (is.null(residual)){
+  ExampleRow <- TheExprs[1,]
+  OperationalColumns <- TheExprs[,-grep("Time|FS|SC|SS|Original|W$|H$", names(TheExprs))] |>
+    colnames()
+  
+  if (!is.null(TheseColumns)){OperationalColumns <- TheseColums}
+  
+  if (!is.null(ThisManyTimes)){
+    Multiplier <- ExampleRow[OperationalColumns]
+    Multiplier[OperationalColumns] <- ThisManyTimes
+  }
+  
+  } else if(!is.null(residual)){
+    if(!is.data.frame(residual)){residual <- read.csv(residual, check.names=FALSE)
+    } else {residual <- residual}
+  Multiplier <- residual |> dplyr::filter(.data[[residual.name]] %in% residual.value) |>
+    select(-all_of(residual.name))
+  }
+  
+  # Adjusting Values
+  
+  if (length(colnames(TheExprs)) >= length(colnames(Multiplier))){
+    TheExpanded <- TheExprs |>
+      mutate(across(any_of(names(Multiplier)), ~ . * Multiplier[[cur_column()]]))
+  }
+  
+  TheEx <- as.matrix(TheExpanded)
+  
+  cf <- Data[[1]]
+  cf@exprs <- TheEx
+  
+  TheFileName <-FCSname
+  TheFileFCS <- paste0(TheFileName, ".fcs")
+  
+  if (is.null(outpath)) {outpath <- getwd()}
+  fileSpot <- file.path(outpath, TheFileFCS)
+  write.FCS(cf, filename = fileSpot, delimiter="#")
+}
+```
+
+To adjust by itself without reference, we use the ThisManyTimes argument.
+
+```{r}
+Vaiya <- BrightnessAdjust(gs=MyGatingSet[[1]], subset="lymphocytes", residual=NULL,
+residual.name=NULL, residual.value=NULL, TheseColumns=NULL,
+ThisManyTimes=1, outpath=StorageLocation, FCSname="TheBaseline")
+```
+
+To adjust vs. the residual calculated adjustments, we provide residual.name and residual.value. 
 
