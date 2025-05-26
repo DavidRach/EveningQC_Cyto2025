@@ -1,0 +1,106 @@
+---
+title: "Generate the Evening QC plots"
+format: html
+---
+
+Specify a desired location
+
+```{r}
+StorageLocation <- file.path("Figures", "Figure_EveningQC")
+
+Instrument <- "5L"
+```
+
+Read in the processed data for the respective instrument
+
+# MFI
+
+```{r}
+Location <- paste0("data/EveningQCDrift", Instrument, "MFI.csv")
+TheData <- read.csv(Location, check.names=FALSE)
+```
+
+And proceed to tidying the dataset for use in plotting
+
+```{r}
+TheData$Timepoint <- gsub("_NA", "", TheData$Timepoint)
+colnames(TheData)
+
+MFIStart <- tail(which(stringr::str_detect(colnames(TheData), "rCV")), 1) + 1
+MFIEnd <- length(colnames(TheData))
+
+GainStart <- head(which(stringr::str_detect(colnames(TheData), "Gain")), 1)
+GainEnd <- head(which(stringr::str_detect(colnames(TheData), "aser")), 1)-1
+
+RCVStart <- head(which(stringr::str_detect(colnames(TheData), "rCV")), 1)
+RCVEnd <- tail(which(stringr::str_detect(colnames(TheData), "rCV")), 1)
+
+Detectors <- colnames(TheData)[MFIStart:MFIEnd]
+
+LongData <- TheData |>
+  tidyr::pivot_longer(
+    cols = all_of(MFIStart:MFIEnd),
+    names_to = "Detectors",
+    values_to = "MFI"
+  )
+
+DetectorIndex <- which(stringr::str_detect(colnames(LongData), "Detectors"))
+MFIIndex <- which(stringr::str_detect(colnames(LongData), "MFI"))
+
+PlottingData <- LongData[c(1:(GainStart-1), DetectorIndex, MFIIndex)]
+PlottingData
+```
+
+Now we can prepare things for plotting 
+
+```{r}
+TheFactors <- PlottingData |> pull(Timepoint) |> unique() |> length()
+
+if (TheFactors == 5){
+    PlottingData$Timepoint <- factor(PlottingData$Timepoint, levels=c("Before", "After", "Before_Evening", "After_Evening"))
+} else (stop("The factoring got messed up"))
+```
+
+Prepare our processing and plotting function
+
+```{r}
+FireTheCannon <- function(x, data){
+    InternalData <- data |> filter(Detectors %in% x)
+    plot <- ggplot(InternalData, aes(x = Timepoint, y = MFI, group = DATE, color = TimeDifference)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 3) + 
+  labs(title=x) +
+  theme_bw()
+return(plot)
+}
+```
+
+```{r}
+PlottingData1 <- PlottingData |> filter(DATE != "2024-12-05") #Bead Lot Switch Date
+
+ThePlots <- purrr::map(.x=Detectors, .f=FireTheCannon, data=PlottingData1)
+ThePlots[[1]]
+#plotly::ggplotly(ThePlots[[1]])
+
+TheFileName <- paste0("EveningQCDrift", Instrument, "MFI")
+
+Utility_Patchwork(x=ThePlots, filename = TheFileName, outfolder=StorageLocation,
+thecolumns=1, therows=3, width=7, height=9, returntype="pdf", NotListofList = TRUE)
+```
+
+For individual plot returns
+
+```{r}
+#This
+```
+
+# RCV
+
+```{r}
+Location <- paste0("data/EveningQCDrift", Instrument, "MFI.csv")
+TheData <- read.csv(Location, check.names=FALSE)
+```
+
+And proceed to tidying the dataset for use in plotting
+
+
