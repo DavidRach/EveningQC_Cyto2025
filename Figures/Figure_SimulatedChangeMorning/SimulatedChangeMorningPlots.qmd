@@ -1,0 +1,28 @@
+---
+title: "Simulated Change Morning Plots"
+format: html
+---
+
+
+Specify desired storage location and instrument
+
+```{r}
+StorageLocation <- file.path("Figures", "Figure_SimulatedChangeMorning")
+
+Instrument <- "5L"
+```
+
+Load required packages via library call 
+```{r}
+library(dplyr)
+library(stringr)
+library(purrr)
+library(Luciernaga)
+```
+
+Read in the dataset
+```{r}
+FileName <- paste0("data/ResidualQCMorningAfter", Instrument, ".csv")
+Data <- read.csv(FileName, check.names=FALSE)
+```
+
