@@ -3,13 +3,12 @@ title: "Simulated Change Morning Plots"
 format: html
 ---
 
-
 Specify desired storage location and instrument
 
 ```{r}
 StorageLocation <- file.path("Figures", "Figure_SimulatedChangeMorning")
 
-Instrument <- "5L"
+NumberFluorophores <- 100
 ```
 
 Load required packages via library call 
@@ -20,9 +19,263 @@ library(purrr)
 library(Luciernaga)
 ```
 
+Load in the custom function
+
+```{r}
+QCTheoreticalShift <- function(Residual, NumberDetectors, TheFluorophore,
+ RestingMFI=100000){
+
+References <- Luciernaga:::InstrumentReferences(NumberDetectors=NumberDetectors)
+Internal <- References |> filter(Fluorophore %in% TheFluorophore) |>
+     mutate(AdjustedY=AdjustedY*RestingMFI)
+
+if (!nrow(Internal) == 0){
+
+FinalCol <- ncol(Residual)
+
+Internal <- Internal |> select(-Instrument, -Fluorophore)
+Residual <- Residual |> tidyr::pivot_longer(all_of(2:FinalCol),
+ names_to="Detector", values_to="Adjustment")
+Residual$Detector <- gsub("-A", "", Residual$Detector)
+Merge <- left_join(Residual, Internal, by="Detector")
+Merge <- Merge |> mutate(EveningMFI=Adjustment*AdjustedY)
+Merge <- Merge |> filter(!str_detect(Detector, "SC"))
+
+Merge <- Merge |> group_by(Tracker) |>
+     mutate(Signature = EveningMFI/max(EveningMFI, na.rm = TRUE)) |>
+    ungroup()
+
+Merge2 <- Merge |> select(-Adjustment, -AdjustedY, -EveningMFI)
+
+TheseDates <- Merge2 |> pull(Tracker) |> unique()
+
+Plot <- QC_ViewSignature(x=TheseDates, columnname="Tracker", data=Merge2,
+ TheFormat="longer", detectorcolumn = "Detector", valuecolumn = "Signature",
+ Normalize=FALSE, legend=FALSE, plotname=TheFluorophore)
+} else {Plot <- NULL}
+  return(Plot)
+}
+```
+
+```{r}
+#NumberDetectors <- 38
+#NumberFluorophores <- 100
+
+ChaoticScramble <- function(NumberDetectors, NumberFluorophores){
+    References <- Luciernaga:::InstrumentReferences(NumberDetectors=NumberDetectors)
+    NormalizedPeaks <- References |> group_by(Fluorophore) |>
+        arrange(desc(AdjustedY)) |> slice(1) |> ungroup()
+    UniqueDetectors <- NormalizedPeaks |> pull(Detector) |> unique()
+
+    Extraneous <- NormalizedPeaks |> group_by(Detector) |>
+         mutate(Total = n()) |> filter(Total >=3) |>
+         arrange(desc(Detector)) |> pull(Detector) |> unique()
+
+    
+    if (NumberFluorophores <= length(UniqueDetectors)){
+        SelectedDetectors <- sample(UniqueDetectors,
+         size = NumberFluorophores, replace = FALSE)        
+    } else {
+        Extras <- NumberFluorophores - length(UniqueDetectors)
+        SelectedDetectors <- sample(UniqueDetectors,
+         size = length(UniqueDetectors), replace = FALSE)        
+        ExtraDetectors <- sample(Extraneous, size = Extras,
+        replace = TRUE)
+        SelectedDetectors <- c(SelectedDetectors, ExtraDetectors)        
+    }
+
+    These <- map(.x=SelectedDetectors, .f=InternalSelection,
+     NumberDetectors=NumberDetectors)
+    Unique <- These |> unlist() |> unique()
+
+    if (length(Unique) < NumberFluorophores){
+        StillNeeded <- NumberFluorophores - length(Unique)
+
+        Extras <- vector()
+        for (i in 1:StillNeeded){
+            NewKid <- InternalSelection(x=SelectedDetectors,
+             NumberDetectors=NumberDetectors)
+            Extras <- c(Extras, NewKid)
+        }
+        Unique <- c(Unique, Extras)
+        Second <- Unique |> unique() |> length()
+
+        if (length(Second) < NumberFluorophores){
+        StillNeeded <- NumberFluorophores - Second
+
+        SecondExtras <- vector()
+        for (i in 1:StillNeeded){
+            NewKid <- InternalSelection(x=SelectedDetectors,
+             NumberDetectors=NumberDetectors)
+            SecondExtras <- c(SecondExtras, NewKid)
+        }
+        Unique <- c(Unique, SecondExtras)
+        Third <- Unique |> unique() |> length()
+        FinalList <- Unique
+        } else {FinalList <- Unique}
+    }  else {FinalList <- Unique}
+  return(FinalList)
+}
+
+
+InternalSelection <- function(x, NumberDetectors){
+    References <- Luciernaga:::InstrumentReferences(NumberDetectors=NumberDetectors)
+    NormalizedPeaks <- References |> group_by(Fluorophore) |>
+        arrange(desc(AdjustedY)) |> slice(1) |> ungroup()
+    Candidates <- NormalizedPeaks |> filter(Detector %in% x) |> pull(Fluorophore)
+    Candidate <- sample(Candidates, size = 1)
+    return(Candidate)
+}
+```
+
+# 3L
+
 Read in the dataset
 ```{r}
-FileName <- paste0("data/ResidualQCMorningAfter", Instrument, ".csv")
+FileName <- paste0("data/ResidualQCMorningAfter", "3L", ".csv")
+Data <- read.csv(FileName, check.names=FALSE)
+#Data <- Data |> rename(DATE=Tracker)
+```
+
+```{r}
+#| code-fold:true
+#| echo: false
+
+# NumberDetectors <- 38
+# TheFluorophore <- "BUV395"
+# RestingMFI <- 100000
+# Residual <- Data
+
+FluorophoreList <- c("BUV395", "BUV563", "BUV615", "BUV661", "BUV737",
+ "BUV805", "Pacific Blue", "BV480", "BV605", "BV650", "BV711", "BV750", "BV786", 
+ "Alexa Fluor 488", "Spark Blue 550", "Spark Blue 574", "RB613", "RB705", "RB780", 
+    "PE", "PE-Dazzle 594", "PE-Cy5", "PE-Fire 700", "PE-Fire 744", "PE-Vio 770", 
+    "APC", "Alexa Fluor 647", "APC-R700", "Zombie NIR", "APC-Fire 750",
+    "APC-Fire 810")
+
+ThePlots <- map(FluorophoreList, ~ QCTheoreticalShift(TheFluorophore=.x, Residual=Data, NumberDetectors=38))
+```
+
+```{r}
+TheFileName <- paste0("MorningAfterQC_", "3L", "SelectFluorophores")
+
+Utility_Patchwork(x=ThePlots, filename = TheFileName, outfolder=StorageLocation,
+thecolumns=1, therows=3, width=7, height=9, returntype="pdf", NotListofList = TRUE)
+```
+
+And for true chaotic randomness
+
+```{r}
+FluorophoreList <- ChaoticScramble(NumberDetectors = 38, NumberFluorophores = NumberFluorophores)
+
+ThePlots <- map(FluorophoreList, ~ QCTheoreticalShift(TheFluorophore=.x, Residual=Data, NumberDetectors=38))
+```
+
+```{r}
+TheFileName <- paste0("MorningAfterQC_", "3L", "RandomFluorophores")
+
+Utility_Patchwork(x=ThePlots, filename = TheFileName, outfolder=StorageLocation,
+thecolumns=1, therows=3, width=7, height=9, returntype="pdf", NotListofList = TRUE)
+```
+
+# 4L
+
+Read in the dataset
+```{r}
+FileName <- paste0("data/ResidualQCMorningAfter", "4L", ".csv")
 Data <- read.csv(FileName, check.names=FALSE)
 ```
 
+```{r}
+#| code-fold:true
+#| echo: false
+
+#NumberDetectors <- 54
+#TheFluorophore <- "PE"
+#RestingMFI <- 100000
+
+FluorophoreList <- c("BUV395", "BUV563", "BUV615", "BUV661", "BUV737",
+ "BUV805", "Pacific Blue", "BV480", "BV605", "BV650", "BV711", "BV750", "BV786", 
+ "Alexa Fluor 488", "Spark Blue 550", "Spark Blue 574", "RB613", "RB705", "RB780", 
+    "PE", "PE-Dazzle 594", "PE-Cy5", "PE-Fire 700", "PE-Fire 744", "PE-Vio 770", 
+    "APC", "Alexa Fluor 647", "APC-R700", "Zombie NIR", "APC-Fire 750",
+    "APC-Fire 810")
+
+ThePlots <- map(FluorophoreList, ~ QCTheoreticalShift(TheFluorophore=.x, Residual=Data, NumberDetectors=54))
+```
+
+```{r}
+TheFileName <- paste0("MorningAfterQC_", "4L", "SelectFluorophores")
+
+Utility_Patchwork(x=ThePlots, filename = TheFileName, outfolder=StorageLocation,
+thecolumns=1, therows=3, width=7, height=9, returntype="pdf", NotListofList = TRUE)
+```
+
+And for true chaotic randomness
+
+```{r}
+FluorophoreList <- ChaoticScramble(NumberDetectors = 54, NumberFluorophores = NumberFluorophores)
+
+ThePlots <- map(FluorophoreList, ~ QCTheoreticalShift(TheFluorophore=.x, Residual=Data, NumberDetectors=54))
+```
+
+```{r}
+TheFileName <- paste0("MorningAfterQC_", "4L", "RandomFluorophores")
+
+Utility_Patchwork(x=ThePlots, filename = TheFileName, outfolder=StorageLocation,
+thecolumns=1, therows=3, width=7, height=9, returntype="pdf", NotListofList = TRUE)
+```
+
+# 5L
+
+Read in the dataset
+```{r}
+FileName <- paste0("data/ResidualQCMorningAfter", "5L", ".csv")
+Data <- read.csv(FileName, check.names=FALSE)
+```
+
+```{r}
+#| code-fold:true
+#| echo: false
+
+#NumberDetectors <- 54
+#TheFluorophore <- "PE"
+#RestingMFI <- 100000
+
+FluorophoreList <- c("BUV395", "BUV563", "BUV615", "BUV661", "BUV737",
+ "BUV805", "Pacific Blue", "BV480", "BV605", "BV650", "BV711", "BV750", "BV786", 
+ "Alexa Fluor 488", "Spark Blue 550", "Spark Blue 574", "RB613", "RB705", "RB780", 
+    "PE", "PE-Dazzle 594", "PE-Cy5", "PE-Fire 700", "PE-Fire 744", "PE-Vio 770", 
+    "APC", "Alexa Fluor 647", "APC-R700", "Zombie NIR", "APC-Fire 750",
+    "APC-Fire 810")
+
+ThePlots <- map(FluorophoreList, ~ QCTheoreticalShift(TheFluorophore=.x, Residual=Data, NumberDetectors=64))
+```
+
+```{r}
+TheFileName <- paste0("MorningAfterQC_", "5L", "SelectFluorophores")
+
+Utility_Patchwork(x=ThePlots, filename = TheFileName, outfolder=StorageLocation,
+thecolumns=1, therows=3, width=7, height=9, returntype="pdf", NotListofList = TRUE)
+```
+
+And for true chaotic randomness
+
+```{r}
+FluorophoreList <- ChaoticScramble(NumberDetectors = 64, NumberFluorophores = NumberFluorophores)
+
+ThePlots <- map(FluorophoreList, ~ QCTheoreticalShift(TheFluorophore=.x, Residual=Data, NumberDetectors=64))
+```
+
+```{r}
+TheFileName <- paste0("MorningAfterQC_", "5L", "RandomFluorophores")
+
+Utility_Patchwork(x=ThePlots, filename = TheFileName, outfolder=StorageLocation,
+thecolumns=1, therows=3, width=7, height=9, returntype="pdf", NotListofList = TRUE)
+```
+
+# Conclusion
+
+```{r}
+print("Goodbye")
+```
