@@ -8,7 +8,16 @@ Specify a desired location
 ```{r}
 StorageLocation <- file.path("Figures", "Figure_EveningQC")
 
-Instrument <- "4L"
+Instrument <- "5L"
+```
+
+Next load required packages via library call  
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(Luciernaga)
 ```
 
 Read in the processed data for the respective instrument
@@ -69,7 +78,8 @@ FireTheCannon <- function(x, data){
     plot <- ggplot(InternalData, aes(x = Timepoint, y = MFI, group = DATE, color = TimeDifference)) +
   geom_line(linewidth = 1) +
   geom_point(size = 3) + 
-  labs(title=x) +
+  labs(title=x, x=NULL, y=NULL) + theme(legend.position="none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+  guides(color = "none") +
   theme_bw()
 return(plot)
 }
@@ -79,8 +89,26 @@ return(plot)
 PlottingData1 <- PlottingData |> filter(DATE != "2024-12-05") #Bead Lot Switch Date
 
 ThePlots <- purrr::map(.x=Detectors, .f=FireTheCannon, data=PlottingData1)
-ThePlots[[1]]
-#plotly::ggplotly(ThePlots[[1]])
+
+for (i in ThePlots){
+  Title <- i$labels$title
+  fileName <- paste0(Title, "_", Instrument, ".png")
+  Here <- file.path(StorageLocation, fileName)
+  ggsave(filename = Here, 
+       plot = i,
+       width = 4, 
+       height = 3)
+}
+
+
+
+# Clean title for filename (remove special characters)
+  # Keep alphanumeric and spaces
+  # Replace spaces with underscores
+
+
+
+#plotly::ggplotly(ThePlots[[2]])
 
 TheFileName <- paste0("EveningQCDrift", Instrument, "MFI")
 

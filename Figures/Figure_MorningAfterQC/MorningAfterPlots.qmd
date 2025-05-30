@@ -79,10 +79,11 @@ Prepare our processing and plotting function
 ```{r}
 FireTheCannon <- function(x, data){
     InternalData <- data |> filter(Detectors %in% x)
-    plot <- ggplot(InternalData, aes(x = Timepoint, y = MFI, group = Tracker, color = TimeDifference)) +
+    plot <- ggplot(InternalData, aes(x = Timepoint, y = MFI, group = DATE, color = TimeDifference)) +
   geom_line(linewidth = 1) +
-  geom_point(size = 3) + 
-  labs(title=x) +
+  geom_point(size = 3) + scale_color_gradient(low = "red2", high = "red4") + 
+  labs(title=x, x=NULL, y=NULL) + theme(legend.position="none", axis.text.x = element_text(angle = 45, hjust = 1)) +
+  guides(color = "none") +
   theme_bw()
 return(plot)
 }
@@ -94,6 +95,16 @@ PlottingData1 <- PlottingData |> filter(DATE != "2024-12-05") #Bead Lot Switch D
 ThePlots <- purrr::map(.x=Detectors, .f=FireTheCannon, data=PlottingData1)
 ThePlots[[1]]
 #plotly::ggplotly(ThePlots[[1]])
+
+for (i in ThePlots){
+  Title <- i$labels$title
+  fileName <- paste0(Title, "_", Instrument, ".png")
+  Here <- file.path(StorageLocation, fileName)
+  ggsave(filename = Here, 
+       plot = i,
+       width = 4, 
+       height = 3)
+}
 
 TheFileName <- paste0("MorningQCDrift", Instrument, "MFI")
 
