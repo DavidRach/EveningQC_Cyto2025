@@ -1,0 +1,298 @@
+---
+title: "InstrumentQC as diagnostic platform"
+format: html
+---
+
+Specify a storage location
+
+```{r}
+StorageLocation <- file.path("Figures", "Figure_Diagnostics")
+```
+
+Load packages via the library call 
+
+```{r}
+library(dplyr)
+library(stringr)
+library(lubridate)
+library(ggplot2)
+library(Luciernaga)
+```
+
+
+So this Figure is catch-all highlighting what we already see on the InstrumentQC dashboard,
+ideally with the maintenance visit dashed lines which we can't see on the plotly version. 
+
+So for this .qmd file, I will be retrieving data from InstrumentQC's Data archive, and selectively plotting examples
+
+```{r}
+# Cytek Aurora 3L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "3L", "Archive", "BeadData3L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("3L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data3L <- Data
+```
+
+```{r}
+# Cytek Aurora 4L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "4L", "Archive", "BeadData4L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("4L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data4L <- Data
+```
+
+```{r}
+# Cytek Aurora 5L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "5L", "Archive", "BeadData5L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("5L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data5L <- Data 
+```
+
+For Archived Bead Data, we need to provide the flag conversion criteria
+
+```{r}
+#| eval: FALSE
+
+QC_Cutoffs <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "QC_5L.CSV",                              
+      sep = "/"                                             
+    )
+```
+
+And the maintenance file
+
+```{r}
+MaintenancePath <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "AuroraMaintenance.csv",                              
+      sep = "/"                                             
+    )
+
+Maintenance <- read.csv(MaintenancePath, check.names=FALSE)
+Maintenance <- Maintenance |> filter(!str_detect(reason, "lean"))
+```
+
+# 3L
+
+```{r}
+Instrument <- "3L"
+Year <- 2024
+
+QC_Cutoffs <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "QC_3L.CSV",                              
+      sep = "/"                                             
+    )
+
+TheMaintenance <- Maintenance |> dplyr::filter(instrument %in% "3L")
+
+The2024 <- Data3L |> dplyr::filter(year(DateTime) >= 2024)
+
+The2024 <- HolisticToArchived(data=The2024, manufacturer="Cytek",
+ baselinecutoffs=QC_Cutoffs, gainmultiplier = 2)
+
+# Gain
+
+x <- The2024 %>% dplyr::filter(Timepoint %in% c("After"))
+TheColumns <- x %>% select(where(~is.numeric(.)||is.integer(.))) %>% colnames()
+TheColumns <- setdiff(TheColumns, "TIME")
+TheIntermediate <- TheColumns[str_detect(TheColumns, "Gain")]
+TheColumnNames <- TheIntermediate[str_detect(TheIntermediate, "-A")]
+
+VioletGains <- TheColumnNames[str_detect(TheColumnNames, "^V1-A")]
+VioletPlotsGain <- QC_Plots(x=x, FailedFlag=FALSE, MeasurementType=VioletGains,
+                      plotType = "individual", returntype = "plots",
+                      strict = TRUE, YAxisLabel = "Gain", RepairVisits=TheMaintenance)
+
+FileName <- paste(Instrument, "V1_Gain", Year, sep="_")
+FileName <- paste0(FileName, ".png")
+FinalLocation <- file.path(StorageLocation, FileName)
+ggsave(filename = FinalLocation, VioletPlotsGain[[1]], dpi = 600, width = 4, height = 3)
+
+# RCV
+x <- The2024 %>% dplyr::filter(Timepoint %in% c("After"))
+TheColumns <- x %>% select(where(~is.numeric(.)||is.integer(.))) %>% colnames()
+TheColumns <- setdiff(TheColumns, "TIME")
+TheIntermediate <- TheColumns[!str_detect(TheColumns, "Gain")]
+TheIntermediate <- TheIntermediate[str_detect(TheIntermediate, "rCV")]
+TheColumnNames <- TheIntermediate[str_detect(TheIntermediate, "-A")]
+
+VioletGains <- TheColumnNames[str_detect(TheColumnNames, "^V1-A")]
+VioletPlotsRCV <- QC_Plots(x=x, FailedFlag=TRUE, MeasurementType=VioletGains,
+                      plotType = "individual", returntype = "plots", YAxisLabel = "%rCV", RepairVisits=TheMaintenance)
+
+FileName <- paste(Instrument, "V1_RCV", Year, sep="_")
+FileName <- paste0(FileName, ".png")
+FinalLocation <- file.path(StorageLocation, FileName)
+ggsave(filename = FinalLocation, VioletPlotsRCV[[1]], dpi = 600, width = 4, height = 3)
+```
+
+# 4L
+
+
+
+# 5L
+
+```{r}
+Instrument <- "5L"
+Year <- 2024
+
+QC_Cutoffs <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "QC_5L.CSV",                              
+      sep = "/"                                             
+    )
+
+TheMaintenance <- Maintenance |> dplyr::filter(instrument %in% "5L")
+
+The2024 <- Data5L |> dplyr::filter(year(DateTime) >= 2024)
+
+The2024 <- HolisticToArchived(data=The2024, manufacturer="Cytek",
+ baselinecutoffs=QC_Cutoffs, gainmultiplier = 2)
+
+# MFI
+x <- The2024 %>% dplyr::filter(Timepoint %in% c("Before", "After"))
+TheColumns <- x %>% select(where(~is.numeric(.)||is.integer(.))) %>% colnames()
+TheColumns <- setdiff(TheColumns, "TIME")
+TheIntermediate <- TheColumns[!str_detect(TheColumns, "Gain")]
+TheIntermediate <- TheIntermediate[!str_detect(TheIntermediate, "rCV")]
+TheColumnNames <- TheIntermediate[str_detect(TheIntermediate, "-A")]
+
+RedGains <- TheColumnNames[str_detect(TheColumnNames, "^R")]
+RedPlotsMFI <- QC_Plots(x=x, FailedFlag=TRUE, MeasurementType=RedGains,
+                     plotType = "comparison", returntype = "plots",
+                     Metadata="Timepoint", strict = TRUE, YAxisLabel = "MFI",
+                     RepairVisits=TheMaintenance)
+
+FileName <- paste(Instrument, "R1_MFI", Year, sep="_")
+FileName <- paste0(FileName, ".png")
+FinalLocation <- file.path(StorageLocation, FileName)
+ggsave(filename = FinalLocation, RedPlotsMFI[[1]], dpi = 600, width = 4, height = 3)
+
+VioletGains <- TheColumnNames[str_detect(TheColumnNames, "^V")]
+VioletPlotsMFI <- QC_Plots(x=x, FailedFlag=TRUE, MeasurementType=VioletGains,
+                      plotType = "comparison", returntype = "plots",
+                      Metadata="Timepoint", strict = TRUE, YAxisLabel = "MFI",
+                      RepairVisits=TheMaintenance)
+FileName <- paste(Instrument, "V2_MFI", Year, sep="_")
+FileName <- paste0(FileName, ".png")
+FinalLocation <- file.path(StorageLocation, FileName)
+ggsave(filename = FinalLocation, VioletPlotsMFI[[2]], dpi = 600, width = 4, height = 3)
+
+YellowGreenGains <- TheColumnNames[str_detect(TheColumnNames, "^YG")]
+YellowGreenPlotsMFI <- QC_Plots(x=x, FailedFlag=TRUE, MeasurementType=YellowGreenGains,
+                      plotType = "comparison", returntype = "plots",
+                      Metadata="Timepoint", strict = TRUE, YAxisLabel = "MFI",
+                      RepairVisits=TheMaintenance)
+
+FileName <- paste(Instrument, "YG2_MFI", Year, sep="_")
+FileName <- paste0(FileName, ".png")
+FinalLocation <- file.path(StorageLocation, FileName)
+ggsave(filename = FinalLocation, YellowGreenPlotsMFI[[2]], dpi = 600, width = 4, height = 3)
+
+ScatterGains <- TheIntermediate[str_detect(TheIntermediate, "SC-")]
+ScatterGains <- Luciernaga:::ScalePriority(ScatterGains)
+ScatterPlotsMFI <- QC_Plots(x=x, FailedFlag=TRUE, MeasurementType=ScatterGains,
+                     plotType = "comparison", returntype = "plots",
+                     Metadata="Timepoint", strict = TRUE, YAxisLabel = " ",
+                     RepairVisits=TheMaintenance)
+FileName <- paste(Instrument, "SSC-A_MFI", Year, sep="_")
+FileName <- paste0(FileName, ".png")
+FinalLocation <- file.path(StorageLocation, FileName)
+ggsave(filename = FinalLocation, ScatterPlotsMFI[[3]], dpi = 600, width = 4, height = 3)
+
+# RCV
+x <- The2024 %>% dplyr::filter(Timepoint %in% c("After"))
+TheColumns <- x %>% select(where(~is.numeric(.)||is.integer(.))) %>% colnames()
+TheColumns <- setdiff(TheColumns, "TIME")
+TheIntermediate <- TheColumns[!str_detect(TheColumns, "Gain")]
+TheIntermediate <- TheIntermediate[str_detect(TheIntermediate, "rCV")]
+TheColumnNames <- TheIntermediate[str_detect(TheIntermediate, "-A")]
+
+RedGains <- TheColumnNames[str_detect(TheColumnNames, "^R8")]
+RedPlotsRCV <- QC_Plots(x=x, FailedFlag=TRUE, MeasurementType=RedGains,
+                      plotType = "individual", returntype = "plots", YAxisLabel = "%rCV", RepairVisits=TheMaintenance)
+
+FileName <- paste(Instrument, "R8_RCV", Year, sep="_")
+FileName <- paste0(FileName, ".png")
+FinalLocation <- file.path(StorageLocation, FileName)
+ggsave(filename = FinalLocation, RedPlotsRCV[[1]], dpi = 600, width = 4, height = 3)
+
+# RCV
+x <- The2024 %>% dplyr::filter(Timepoint %in% c("After"))
+TheColumns <- x %>% select(where(~is.numeric(.)||is.integer(.))) %>% colnames()
+TheColumns <- setdiff(TheColumns, "TIME")
+TheIntermediate <- TheColumns[!str_detect(TheColumns, "Gain")]
+TheIntermediate <- TheIntermediate[str_detect(TheIntermediate, "rCV")]
+TheColumnNames <- TheIntermediate[str_detect(TheIntermediate, "-A")]
+
+UltraVioletGains <- TheColumnNames[str_detect(TheColumnNames, "^UV16")]
+UltraVioletPlotsRCV <- QC_Plots(x=x, FailedFlag=TRUE, MeasurementType=UltraVioletGains,
+                      plotType = "individual", returntype = "plots", YAxisLabel = "%rCV",
+                      RepairVisits=TheMaintenance)
+
+FileName <- paste(Instrument, "UV16_RCV", Year, sep="_")
+FileName <- paste0(FileName, ".png")
+FinalLocation <- file.path(StorageLocation, FileName)
+ggsave(filename = FinalLocation, UltraVioletPlotsRCV[[1]], dpi = 600, width = 4, height = 3)
+
+# Gain
+
+x <- The2024 %>% dplyr::filter(Timepoint %in% c("After"))
+TheColumns <- x %>% select(where(~is.numeric(.)||is.integer(.))) %>% colnames()
+TheColumns <- setdiff(TheColumns, "TIME")
+TheIntermediate <- TheColumns[str_detect(TheColumns, "Gain")]
+TheColumnNames <- TheIntermediate[str_detect(TheIntermediate, "-A")]
+
+VioletGains <- TheColumnNames[str_detect(TheColumnNames, "^V1-A")]
+VioletPlotsGain <- QC_Plots(x=x, FailedFlag=FALSE, MeasurementType=VioletGains,
+                      plotType = "individual", returntype = "plots",
+                      strict = TRUE, YAxisLabel = "Gain", RepairVisits=TheMaintenance)
+
+FileName <- paste(Instrument, "R1_Gain", Year, sep="_")
+FileName <- paste0(FileName, ".png")
+FinalLocation <- file.path(StorageLocation, FileName)
+ggsave(filename = FinalLocation, VioletPlotsGain[[1]], dpi = 600, width = 4, height = 3)
+```
+
+

@@ -1,0 +1,151 @@
+---
+title: "Instrument Usage"
+format: html
+---
+Set storage location for the completed plots
+
+```{r}
+StorageLocation <- file.path("Figures", "Figure_InstrumentUsage")
+```
+
+First load required packages via the library call
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(Luciernaga)
+#library(stringr)
+library(ggplot2)
+```
+
+Bring in the processed Application Log datasets from UMGCC FCSS InstrumentQC dashboard for each instrument of interest
+
+```{r}
+# Cytek Aurora 3L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "3L", "Archive", "ApplicationData3L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("3L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data3L <- Data |> mutate(Instrument = "3L")
+```
+
+```{r}
+# Cytek Aurora 3L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "4L", "Archive", "ApplicationData4L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("4L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data4L <- Data |> mutate(Instrument = "4L")
+```
+
+```{r}
+# Cytek Aurora 5L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "5L", "Archive", "ApplicationData5L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("5L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data5L <- Data |> mutate(Instrument = "5L")
+```
+
+```{r}
+Data <- bind_rows(Data3L, Data4L, Data5L)
+```
+
+```{r}
+Data$DateTime <- ymd_hms(Data$DateTime)
+
+Data <- Data %>% mutate(Weekday = wday(DateTime, label = TRUE, abbr = FALSE),
+                 Days_to_Sunday = (wday(DateTime) - 1) %% 7)
+
+Data <- Data %>% mutate(PreviousSunday = DateTime - days(Days_to_Sunday)) %>%
+    select(-Weekday, -Days_to_Sunday)
+```
+
+For the poster, filtering for the last two years of data, and excluding the really late/early timepoints that were mostly me running the bleach testing experiments on weekends. 
+
+```{r}
+RecentData <- Data |> filter(year(DateTime) >= 2024) |>
+  filter(hour(DateTime) >= 8)  |> filter(hour(DateTime) <= 24) 
+```
+
+#### 3L
+
+```{r}
+#| echo: false
+The3L <- Luciernaga:::UsagePlot(data=RecentData, TheInstrument="3L",
+ returnType="ByFifteen", desiredfill = "royalblue", textsizey=6, textsizex=7)
+
+filename <- "Cytek3LUsage.png"
+TheFile <- file.path(StorageLocation, filename)
+
+ggsave(filename = TheFile, The4L, dpi = 600, width = 4, height = 3)
+```
+
+```{r}
+#| echo: false
+plotly::ggplotly(The3L)
+```
+
+#### 4L
+
+```{r}
+#| echo: false
+The4L <- Luciernaga:::UsagePlot(data=RecentData, TheInstrument="4L",
+ returnType="ByFifteen", desiredfill = "royalblue", textsizey=6, textsizex=7)
+
+filename <- "Cytek4LUsage.png"
+TheFile <- file.path(StorageLocation, filename)
+
+ggsave(filename = TheFile, The4L, dpi = 600, width = 4, height = 3)
+```
+
+```{r}
+#| echo: false
+plotly::ggplotly(The4L)
+```
+
+#### 5L
+
+```{r}
+#| echo: false
+The5L <- Luciernaga:::UsagePlot(data=RecentData, TheInstrument="5L",
+ returnType="ByFifteen", desiredfill = "royalblue", textsizey=6, textsizex=7)
+
+filename <- "Cytek5LUsage.png"
+TheFile <- file.path(StorageLocation, filename)
+
+ggsave(filename = TheFile, The5L, dpi = 600, width = 4, height = 3)
+```
+
+```{r}
+#| echo: false
+plotly::ggplotly(The5L)
+```
+

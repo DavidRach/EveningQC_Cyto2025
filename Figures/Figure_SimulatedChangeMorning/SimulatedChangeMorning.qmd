@@ -1,0 +1,56 @@
+---
+title: "Simulated Change Reference Signatures - Morning After"
+format: html
+---
+
+Specify desired storage location and instrument
+
+```{r}
+StorageLocation <- file.path("Figures", "Figure_SimulatedChangeMorning")
+
+Instrument <- "5L"
+```
+
+Load required packages via library call 
+```{r}
+library(dplyr)
+library(stringr)
+library(purrr)
+library(Luciernaga)
+```
+
+```{r}
+FileName <- paste0("data/MorningAfterQCDrift", Instrument, ".csv")
+Data <- read.csv(FileName, check.names=FALSE)
+
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data$Timepoint <- gsub("_NA", "", Data$Timepoint)
+TheNames <- colnames(Data)
+TheColumns <- TheNames[str_detect(TheNames, "-A$")]
+
+# The following takes average of both After timepoints as baseline
+Data1 <-  Data |> group_by(Tracker) |> filter(str_detect(Timepoint, "fter")) |>
+  select(all_of(c("Tracker", TheColumns)))
+#ncol(Data1)
+#nrow(Data1)
+
+Data2 <- Data |> group_by(Tracker) |> filter(str_detect(Timepoint, "Before")) |>
+    select(all_of(c("Tracker", TheColumns)))
+#ncol(Data2)
+#nrow(Data2)
+
+Data2_aligned <- Data2[match(Data1$Tracker, Data2$Tracker), ]
+Residual <- Data1
+Residual[-1] <- Data2_aligned[-1] / Data1[-1]
+#View(Residual)
+```
+
+```{r}
+FileName <- paste0("data/ResidualQCMorningAfter", Instrument, ".csv")
+write.csv(Residual, FileName, row.names=FALSE)
+```
+
+```{r}
+print("Goodbye")
+```
+

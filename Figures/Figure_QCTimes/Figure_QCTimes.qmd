@@ -1,0 +1,126 @@
+---
+title: "Instrument Usage"
+format: html
+---
+Set storage location for the completed plots
+
+```{r}
+StorageLocation <- file.path("Figures", "Figure_QCTimes")
+```
+
+First load required packages via the library call
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+```
+
+Bring in the processed QC data archives from UMGCC FCSS InstrumentQC dashboard for each instrument of interest
+
+```{r}
+# Cytek Aurora 3L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "3L", "Archive", "BeadData3L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("3L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data3L <- Data |> select(DateTime) |> mutate(Instrument = "3L")
+```
+
+```{r}
+# Cytek Aurora 4L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "4L", "Archive", "BeadData4L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("4L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data4L <- Data |> select(DateTime) |> mutate(Instrument = "4L")
+```
+
+```{r}
+# Cytek Aurora 5L
+
+CSV <- data_path <-                                                
+    paste(                                                  
+      "https://raw.githubusercontent.com",                  
+      "UMGCCFCSS", "InstrumentQC",                   
+      "main", "data", "5L", "Archive", "BeadData5L.csv",                              
+      sep = "/"                                             
+    ) 
+
+TheList <- c("5L")
+
+Data <- read.csv(CSV, check.names=FALSE)
+Data$DateTime <- lubridate::ymd_hms(Data$DateTime)
+Data5L <- Data |> select(DateTime) |> mutate(Instrument = "5L")
+```
+
+Bring the datasets together and convert character columns to time
+
+```{r}
+TheTimes <- bind_rows(Data3L, Data4L, Data5L)
+
+TheTimes$DateTime <- lubridate::ymd_hms(TheTimes$DateTime)
+
+TheTimes$hour_of_day <- hour(TheTimes$DateTime) + minute(TheTimes$DateTime) / 60
+```
+
+For the poster, I want to show the typical time of QC vs. the typical user run times. So I will filter for last two years, exclude the really late and early morning test (which I was mostly responsible for when running bleach test earlier this year). 
+
+```{r}
+TheTimes <- TheTimes |> filter(year(DateTime) >= 2024) |>
+  filter(hour(DateTime) >= 6)  |> filter(hour(DateTime) <= 18)#|> arrange(DateTime)
+```
+
+Then we can plot the data, showing year and cumulative by different shades of grey. 
+
+```{r}
+TheTimes$year <- as.factor(format(TheTimes$DateTime, "%Y"))
+plot <- ggplot(TheTimes, aes(x = hour_of_day)) +
+  geom_histogram(aes(fill = "All Years"), binwidth = 0.25,
+    alpha = 0.2, color = "NA") + geom_histogram(
+    aes(fill = year), binwidth = 0.25, alpha = 0.5, position = "identity") +
+  geom_vline(xintercept = 10.5,color = "blue",linetype = "dashed",linewidth = 1) +
+  labs(title = NULL, x = NULL, y = NULL, fill = NULL) + scale_x_continuous(
+    breaks = seq(0, 24, by = 3), 
+    labels = function(x) sprintf("%02d:%02d", floor(x), (x %% 1) * 60)) +
+  scale_fill_manual(values = c("All Years" = "lightgray", hcl.colors(nlevels(TheTimes$year), "Set2"))) + theme_bw() + theme(
+    axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5),
+    legend.position = "none")
+```
+
+Save the file for the poster
+
+```{r}
+filename <- "QCTime.png"
+TheFile <- file.path(StorageLocation, filename)
+
+ggsave(filename = TheFile, plot, dpi = 600, width = 4, height = 3)
+```
+
+And bonus for anyone who checked out our code base, you can visualize it with plotly for an interactive plot. Cheers!
+
+```{r}
+TheQCPlot <- plotly::ggplotly(plot, tooltip = c("fill", "count", "x"))
+```
+
+
+
+

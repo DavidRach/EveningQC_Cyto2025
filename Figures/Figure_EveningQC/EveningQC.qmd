@@ -1,0 +1,197 @@
+---
+title: "Script for processing Evening QC.csv files"
+format: html
+---
+Specify a desired location
+
+```{r}
+StorageLocation <- file.path("Figures", "Figure_EveningQC")
+
+Instrument <- "5L"
+```
+
+Start by loading packages via library call 
+
+```{r}
+library(flowWorkspace)
+library(Luciernaga)
+```
+
+Point to your fcs file storage location. Naming convention for our files was using TUBENAME keyword, which was structured "12 Before", "12 After", "12 Evening Before", "12 Evening After"
+
+```{r}
+path <- file.path("/media", "david", "DavidRach",
+ "EveningQC_May2025", Instrument)
+
+files <- list.files(path, pattern=".fcs", full.names=TRUE, recursive=TRUE)
+files
+```
+
+We then use load into R using flowWorkspace, and prepare an openCyto template to gate healthy looking beads
+
+```{r}
+MyCytoSet <- load_cytoset_from_fcs(files, transformation=FALSE, truncate_max_range = FALSE)
+MyGatingSet <- GatingSet(MyCytoSet)
+MyGates <- data.table::fread("data/QCBeadGates.csv")
+```
+
+Proceed to gate the beads
+```{r}
+MyGatingTemplate <- gatingTemplate(MyGates)
+gt_gating(MyGatingTemplate, MyGatingSet)
+plot(MyGatingSet)
+```
+
+And use Luciernaga's plotting functions to check that the openCyto parameters were appropiate
+
+```{r}
+removestrings <-  c("(Cells)", ".fcs", " ")
+
+IndividualPlot <- Utility_GatingPlots(x=MyGatingSet[[2]], sample.name = "GUID",
+                                      removestrings = removestrings, gtFile = MyGates,
+                                      DesiredGates = NULL, outpath = StorageLocation, returnType="patchwork")
+
+IndividualPlot[[1]]
+```
+
+For all specimens run the following
+
+```{r}
+Plots <- purrr::map(.x=MyGatingSet, .f=Utility_GatingPlots, sample.name = "GUID",
+                                      removestrings = removestrings,
+                                       gtFile = MyGates, DesiredGates = NULL,
+                                       outpath = StorageLocation,
+                                       returnType="patchwork")
+
+Filename <- paste0("GatedQCBeads", Instrument)
+
+Utility_Patchwork(x=Plots, filename = Filename, outfolder=StorageLocation, thecolumns=1, therows=1, width=7, height=9, returntype="pdf", NotListofList = FALSE)
+```
+
+# Deriving MFI
+
+Main values of interest are the MFI values, as we have observed changes in them in the InstrumentQC dashboard. 
+
+```{r}
+BeforeAfter <- purrr::map(.x=MyGatingSet, .f=QC_GainMonitoring,
+                       sample.name = "TUBENAME", stats="median", subsets="beads") |> bind_rows()
+
+BeforeAfter <- BeforeAfter |> mutate(DateTime = DATE+TIME) |>
+      relocate(DateTime, .before=DATE)
+
+BeforeAfter <- BeforeAfter |> arrange(desc(DateTime))
+
+Data <- BeforeAfter |> mutate(Status=case_when(
+    str_detect(SAMPLE, "efore") ~ "Before",
+    str_detect(SAMPLE, "fter") ~ "After",
+    FALSE ~ SAMPLE
+))
+
+Data <- Data |> mutate(Shift=case_when(
+    str_detect(SAMPLE, "vening") ~ "Evening",
+    str_detect(SAMPLE, "fternoon") ~ "Evening",
+    str_detect(SAMPLE, "hutdown") ~ "Evening",
+    FALSE ~ SAMPLE
+))
+
+Data <- Data |>
+  mutate(Status = tidyr::replace_na(Status, "Before"))
+
+Data <- Data |> mutate(Timepoint = paste(Status, Shift, sep = "_"))
+
+Data
+```
+
+```{r}
+Data$Timepoint
+
+These <- Data |> group_by(DATE) |> filter(Timepoint %in% c("After_NA", "Before_Evening")) |> summarize(Count=n()) |> filter(Count == 2) |> dplyr::pull(DATE)
+
+Data <- Data |> filter(DATE %in% These)
+
+EllapsedTime <- Data |> group_by(DATE) |>
+  summarize(
+    TimeDifference = as.numeric(DateTime[Timepoint == "Before_Evening"] - DateTime[Timepoint == "After_NA"],
+    units = "hours")
+  ) |>
+  mutate(TimeDifference = round(TimeDifference / 0.25) * 0.25)
+
+TheData <- left_join(Data, EllapsedTime, by="DATE")
+colnames(TheData)
+TheData <- TheData |> select(-Shift, -Status) |> relocate(TimeDifference, .after=Timepoint)
+```
+
+And save to the data folder so we don't need to rerun each time we want to adjust a plot
+```{r}
+CSVName <- paste0("data/EveningQCDrift", Instrument, "MFI.csv")
+write.csv(TheData, CSVName, row.names=FALSE)
+```
+
+# Deriving %RCV
+
+Question from David on the Cytometry Discord led to us checking to see if %RCV increased over the course of the day. It didn't in our context, but user cleanliness might vary, so here is our processing code for it
+
+```{r}
+RCVData <- map(.x=MyGatingSet, .f=RCVfromFCS, subset="beads", sample.name="GUID", condition.name="$DATE", experiment.name="$ETIM") |> bind_rows()
+#nrow(RCVData)
+
+RCVData$Condition <- lubridate::dmy(RCVData$Condition)
+RCVData$Experiment <- lubridate::hms(RCVData$Experiment)
+RCVData <- RCVData |> rename(DATE=Condition) |> rename(TIME=Experiment)
+
+BeforeAfter <- RCVData |> mutate(DateTime = DATE+TIME) |>
+      relocate(DateTime, .before=DATE)
+
+BeforeAfter <- BeforeAfter |> arrange(desc(DateTime))
+
+Data <- BeforeAfter |> mutate(Status=case_when(
+    str_detect(Sample, "efore") ~ "Before",
+    str_detect(Sample, "fter") ~ "After",
+    FALSE ~ Sample
+))
+
+Data <- Data |> mutate(Shift=case_when(
+    str_detect(Sample, "vening") ~ "Evening",
+    str_detect(Sample, "fternoon") ~ "Evening",
+    str_detect(Sample, "hutdown") ~ "Evening",
+    FALSE ~ Sample
+))
+
+Data <- Data |>
+  mutate(Status = tidyr::replace_na(Status, "Before"))
+
+Data <- Data |> mutate(Timepoint = paste(Status, Shift, sep = "_"))
+
+Data$Timepoint
+
+These <- Data |> group_by(DATE) |> filter(Timepoint %in% c("After_NA", "Before_Evening")) |> summarize(Count=n()) |> filter(Count == 2) |> dplyr::pull(DATE)
+
+Data <- Data |> filter(DATE %in% These)
+
+EllapsedTime <- Data |> group_by(DATE) |>
+  summarize(
+    TimeDifference = as.numeric(DateTime[Timepoint == "Before_Evening"] - DateTime[Timepoint == "After_NA"],
+    units = "hours")
+  ) |>
+  mutate(TimeDifference = round(TimeDifference / 0.25) * 0.25)
+
+TheData <- left_join(Data, EllapsedTime, by="DATE")
+colnames(TheData)
+TheData <- TheData |> select(-Shift, -Status) |> relocate(TimeDifference, .after=Timepoint)
+```
+
+And same thing, store the data for later reuse. 
+
+```{r}
+CSVName <- paste0("data/EveningQCDrift", Instrument, "RCV.csv")
+write.csv(TheData, CSVName, row.names=FALSE)
+```
+
+# Conclusion
+
+```{r}
+print("Goodbye")
+```
+
+
+
