@@ -1,5 +1,8 @@
 # Evening QC Cyto 2025
 
+<img src="https://github.com/DavidRach/EveningQC_Cyto2025/blob/main/EveningQCPoster.png" >
+
+
 This repository is for our '““Wait, when was QC last run???” Evaluating MFI drift after morning QC and its impact on unmixing.”' poster. It contains the data and R code needed to hopefully reproduce our analysis and figures, as well as the .svg files used to create the figures in Inkscape.
 
 ## Organization
