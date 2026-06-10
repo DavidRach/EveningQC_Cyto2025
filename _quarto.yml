@@ -1,0 +1,40 @@
+project:
+  type: website
+  output-dir: docs
+  render: 
+    - index.qmd
+website:
+  google-analytics: "G-LZ35J3XE4D"
+  announcement: 
+    icon: info-circle
+    dismissable: true
+    content: "Thanks for investigating our poster"
+    type: info
+    position: below-navbar 
+  page-navigation: true 
+  title: "David Rach"
+  site-path: "/EveningQC_Cyto2025/"
+  navbar:
+    logo: images/hex.svg
+    background: white
+    left:
+      - text: "Home"
+        href: index.qmd      
+    right:
+    - text: Poster
+      href: index.qmd
+    - icon: youtube
+      href: https://www.youtube.com/@CytometryInR
+      aria-label: YouTube
+    - icon: github
+      href: https://github.com/UMGCCCFCSR/CytometryInR
+      aria-label: GitHub
+  page-footer: 
+   left: Made with [Quarto](https://quarto.org/)
+   right: |
+    ![AGPL-3.0](/images/AGPL3.png)
+    ![CC-BY-SA](/images/CCBYSA.png)
+format:
+  html:
+    css: styles.css
+

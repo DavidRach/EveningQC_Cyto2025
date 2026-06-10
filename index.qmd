@@ -1,0 +1,39 @@
+---
+format: html
+toc: true
+toc-location: right
+toc-depth: 4
+sidebar: false
+---
+![](images/WebsiteBanner.png){width="100%"}
+
+<div style="text-align: right;">
+[![AGPL-3.0][agpl3-shield]][agpl3]
+[![CC BY-SA 4.0][cc-by-sa-shield]][cc-by-sa]
+</div>
+
+Click Here for the [poster](/EveningQCPoster.pdf)
+
+# License
+
+In our commitment to open-science and open-source, all teaching materials are freely offered under a [CC-BY-SA](https://creativecommons.org/licenses/by-sa/4.0/deed.en) license, while all code examples are offered under the [AGPL3-0](https://www.gnu.org/licenses/agpl-3.0.en.html) copyleft license. 
+
+<br>
+<br>
+
+<div style="text-align: right;">
+[![AGPL-3.0][agpl3-image]][agpl3]
+[![CC BY-SA 4.0][cc-by-sa-image]][cc-by-sa]
+</div>
+
+[agpl3-shield]: https://img.shields.io/badge/license-AGPLv3-blue
+[cc-by-sa-shield]: https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg
+
+[cc-by-sa-image]: https://licensebuttons.net/l/by-sa/4.0/88x31.png
+[cc-by-sa]: http://creativecommons.org/licenses/by-sa/4.0/
+
+[agpl3-image]: https://www.gnu.org/graphics/agplv3-with-text-162x68.png
+[agpl3]: https://www.gnu.org/licenses/agpl-3.0.en.html
+
+
+
