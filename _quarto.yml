@@ -46,6 +46,52 @@ website:
         aria-label: YouTube
       - icon: github
         href: https://github.com/DavidRach/
+  sidebar:
+    style: floating
+    collapse-level: 1
+    contents:
+    - section: "2021"
+      contents:
+      - text: "ASTMH2021 Poster: Innate-like T cell responses in HIV exposed uninfected (HEU) Malawian infants"
+        href: https://davidrach.github.io/ILTsInHEU_ASTMH2021/
+    - section: "2023"
+      contents:
+      - text: "Cyto2023 Poster: Spectral Flow Cytometry Analysis of Innate-like T cell responses in Malawian HIV-exposed Uninfected (HEU) Infants."
+        href: https://davidrach.github.io/ILTsInHEU_Cyto2023/
+      - text: "GammaDelta2023 Poster: Vγ9Vδ2 T cell responses in HIV-exposed Uninfected (HEU) Infants."
+        href: https://davidrach.github.io/Vd2sInHEU_GammaDelta2023/
+    - section: "2025"
+      contents:
+      - text: "Cyto2025 Poster: Wait, when was QC last run??? Evaluating MFI drift after morning QC and its impact on unmixing"
+        href: https://davidrach.github.io/EveningQC_Cyto2025/
+      - text: "Cyto2025 Poster: Are these autofluorescences in the room with us right now? Quantifying impact of autofluorescence variation on unmixing"
+        href: https://davidrach.github.io/Autofluorescence_Cyto2025/
+      - text: "Cyto2025 Poster: Well, how bright does it need to be? Investigating the interplay of fluorescent signature and brightness in single-color unmixing controls"
+        href: https://davidrach.github.io/SingleColors_Cyto2025/
+      - text: "Cyto2025 Talk: Well, how bright does it need to be? Investigating the interplay of fluorescent signature and brightness in single-color unmixing controls"
+        href: https://davidrach.github.io/SingleColorsTalk_Cyto2025/
+    - section: "2026"
+      contents: 
+      - text: "ABRF2026: No Cells Left Behind - Wrangling the Full Biological Discovery Potential out of Spectral Flow Cytometry (SFC) datasets"
+        href: https://davidrach.github.io/ComplexDataAnalysis_ABRF2026/  
+      - text: "Cyto2026 Poster: Cytometry in R - A free weekly course for coding beginners"
+        href: https://davidrach.github.io/CytometryInR_Cyto2026/ 
+      - text: "Cyto2026: A semi-supervised pipeline for a comprehensive and scalable analysis of immune heterogeneity in human samples"
+        href: https://davidrach.github.io/AlphaBeta_Cyto2026/
+      - text: "CYTO2026: Being Everything, Everywhere, All at Once - Open-Source Automation for Situational Awareness in SRLs."
+        href: https://davidrach.github.io/FlowAwareness_Cyto2026/
+      - text: "Bioc2026: Cytometry in R - A free weekly course for flow cytometrist with no-to-little coding experience"
+        href: https://davidrach.github.io/CytometryIn_Bioc2026/
+      - text: "Chesapeake Cytometry Consortium: Quirks and All -unlocking comprehensive biological discovery out of your spectral flow cytometry datasets"
+        href: https://davidrach.github.io/QuirksAndAll_CCC2026/
+      - text: "Cytek Internal Webinar: A semi-supervised pipeline for a comprehensive and scalable analysis of immune heterogeneity in human samples"
+        href: https://davidrach.github.io/SemiSupervised_Cytek2026/                
+      - text: "MetroFlow: Towards No Cell Left Behind - open-source toolsets to leverage Spectral Flow Cytometrys full biological discovery potential"
+        href: https://davidrach.github.io/NoCellLeftBehind_MetroFlow2026/
+      - text: "Cytek UGM: Why not both? A semi-supervised pipeline for a comprehensive and scalable analysis of immune heterogeneity in human samples"
+        href: https://davidrach.github.io/WhyNotBoth_CytekUGM2026/
+      - text: "NECyto: Deciphering the black box - leveraging shared-resource laboratory resources to tackle spectral flow cytometrys quirks"
+        href: https://davidrach.github.io/Deciphering_NECyto2026/
   page-footer: 
    left: Made with [Quarto](https://quarto.org/)
    right: |

@@ -25,7 +25,7 @@ To evaluate this, we acquired 5000 SpectroFlo QC beads as fcs files, i) before m
 Finally using the same approach, we adjusted raw reference controls and full-stained samples acquired following morning QC and imported into SpectroFlo for unmixing. We did not observe any major changes to the unmixing in medium-sized panels. In summary, for the instruments at our core, the majority of detector MFI values remain stable following morning QC. Additionally, for the few detectors that did consistently shift, based on both simulated and experimental data, the observed changes would have minimal impact for most fluorophores signatures and subsequent unmixing. Whether these observed small changes are enough to affect unmixing in large panels (40+) colors remains an area that merits further investigation.
 
 [Code](https://github.com/DavidRach/EveningQC_Cyto2025) 
-[Poster](https://davidrach.github.io/EveningQC_Cyto2025/EveningQCPoster.pdf)
+[Poster](/EveningQCPoster.pdf)
 
 ## License
 
